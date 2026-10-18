@@ -16,6 +16,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # Python
+.tools/
+.pip-cache/
 .venv/
 venv/
 __pycache__/

@@ -1,0 +1,5 @@
+# Dependências de execução. Use requirements.lock como arquivo de constraints.
+fastapi==0.143.5
+pydantic==2.14.1
+pydantic-settings==2.16.0
+uvicorn==0.54.0
