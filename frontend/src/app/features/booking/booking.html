@@ -1,0 +1,99 @@
+<app-heading subtitle="Agendamento público" />
+<h1>Solicitar agendamento</h1>
+<p class="intro">O horário será confirmado pela profissional.</p>
+@if (loading()) {
+<p role="status">Carregando serviço e horários…</p>
+} @if (error()) {
+<div role="alert" class="alert error">
+  {{ error() }}
+  <button class="text-button" [disabled]="busy()" (click)="load()">
+    Atualizar disponibilidade
+  </button>
+</div>
+} @if (confirmation()) {
+<section class="alert success" role="status" aria-labelledby="confirmation-title">
+  <h2 id="confirmation-title">✓ Solicitação enviada!</h2>
+  <p>Status: Pendente. Aguarde a confirmação da profissional.</p>
+  <p>O envio não confirma o atendimento.</p>
+</section>
+} @else if (service(); as service) {
+<section class="selection">
+  <p class="eyebrow">Serviço: {{ service.nome }}</p>
+  <p>
+    <strong
+      >{{ service.preco | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} · Duração estimada: {{
+      duration(service.duracao_minutos) }}</strong
+    >
+  </p>
+</section>
+@if (!loading()) { @if (!slots().length) {
+<p class="empty" role="status">
+  Não há horários disponíveis para este serviço. Consulte novamente mais tarde.
+</p>
+} @else {
+<form [formGroup]="form" (ngSubmit)="submit()" (input)="error.set('')">
+  <label for="booking-day">Data desejada</label>
+  <select
+    id="booking-day"
+    [value]="day()"
+    (change)="changeDay($any($event.target).value)"
+    [disabled]="busy()"
+  >
+    @for (date of days(); track date) {
+    <option [value]="date">{{ calendarDate(date) }}</option>
+    }
+  </select>
+  <fieldset [disabled]="busy()">
+    <legend>Horário disponível</legend>
+    <p class="hint">Horários no fuso {{ timezone() }}. A solicitação ocupa todo o bloco.</p>
+    <div class="slot-grid">
+      @for (slot of visibleSlots(); track slot.id) {
+      <button
+        type="button"
+        class="slot-button"
+        [class.selected]="selected() === slot.id"
+        [attr.aria-pressed]="selected() === slot.id"
+        (click)="selected.set(slot.id); error.set('')"
+      >
+        {{ slot.inicio | businessDate:timezone():true }} – {{ slot.fim |
+        businessDate:timezone():true }}{{ selected() === slot.id ? ' ✓' : '' }}
+      </button>
+      }
+    </div>
+  </fieldset>
+  <label for="client-name">Nome completo</label>
+  <input
+    id="client-name"
+    formControlName="cliente_nome"
+    autocomplete="name"
+    maxlength="150"
+    aria-describedby="name-error"
+    [attr.aria-invalid]="form.controls.cliente_nome.touched && form.controls.cliente_nome.invalid"
+  />
+  <app-field-error
+    id="name-error"
+    [control]="form.controls.cliente_nome"
+    message="Informe seu nome, com até 150 caracteres."
+  />
+  <label for="client-phone">Telefone para contato</label>
+  <input
+    id="client-phone"
+    type="tel"
+    inputmode="tel"
+    formControlName="cliente_telefone"
+    autocomplete="tel"
+    maxlength="30"
+    aria-describedby="phone-error"
+    [attr.aria-invalid]="form.controls.cliente_telefone.touched && form.controls.cliente_telefone.invalid"
+  />
+  <app-field-error
+    id="phone-error"
+    [control]="form.controls.cliente_telefone"
+    message="Informe um telefone com DDD, contendo de 10 a 15 dígitos."
+  />
+  <button class="button full submit" type="submit" [disabled]="busy() || loading()">
+    {{ busy() ? 'Enviando…' : 'Enviar solicitação' }}
+  </button>
+</form>
+} } }
+<a class="footer-link" routerLink="/">← Voltar ao catálogo</a>

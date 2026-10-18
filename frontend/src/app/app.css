@@ -1,0 +1,13 @@
+main {
+  max-width: 390px;
+  min-height: 100svh;
+  margin-inline: auto;
+  padding: 28px 24px 32px;
+  background: var(--cream);
+}
+@media (min-width: 480px) {
+  main {
+    margin-block: 24px;
+    border-radius: 24px;
+  }
+}

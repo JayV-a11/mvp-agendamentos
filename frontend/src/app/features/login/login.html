@@ -1,0 +1,48 @@
+<app-heading subtitle="Acesso administrativo" />
+<div class="login-heading">
+  <h1>Bem-vinda de volta</h1>
+  <p class="intro">Entre para organizar seus serviços e horários.</p>
+</div>
+@if (store.expired()) {
+<p class="alert error" role="status">Sua sessão expirou. Entre novamente para continuar.</p>
+} @if (error()) {
+<p class="alert error" role="alert">{{ error() }}</p>
+}
+<form class="panel login-form" [formGroup]="form" (ngSubmit)="submit()">
+  <h2>Acesso da profissional</h2>
+  <label for="email">E-mail</label
+  ><input
+    id="email"
+    type="email"
+    formControlName="email"
+    autocomplete="username"
+    maxlength="255"
+    aria-describedby="email-error"
+    [attr.aria-invalid]="form.controls.email.touched && form.controls.email.invalid"
+  />
+  <app-field-error
+    id="email-error"
+    [control]="form.controls.email"
+    message="Informe um e-mail válido."
+  />
+  <label for="password">Senha</label
+  ><input
+    id="password"
+    type="password"
+    formControlName="senha"
+    autocomplete="current-password"
+    maxlength="128"
+    aria-describedby="password-error"
+    [attr.aria-invalid]="form.controls.senha.touched && form.controls.senha.invalid"
+  />
+  <app-field-error
+    id="password-error"
+    [control]="form.controls.senha"
+    message="Informe sua senha, com até 128 caracteres."
+  />
+  <button type="submit" class="button full submit" [disabled]="busy()">
+    {{ busy() ? 'Entrando…' : 'Entrar na administração' }}
+  </button>
+</form>
+<p class="footnote">Apenas a profissional pode alterar a agenda e o catálogo.</p>
+<a class="footer-link" routerLink="/">← Voltar ao catálogo público</a>

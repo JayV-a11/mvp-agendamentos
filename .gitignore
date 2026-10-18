@@ -1,0 +1,45 @@
+# Configurações locais e segredos (exemplos podem ser versionados)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# JavaScript / Angular
+node_modules/
+.npm-cache/
+.angular/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+.tools/
+.pip-cache/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+
+# Sistema e arquivos temporários de edição
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Documentação e instruções locais; somente o README da raiz é versionado
+*.md
+!/README.md

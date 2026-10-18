@@ -1,0 +1,121 @@
+<app-heading subtitle="Área administrativa · acesso protegido" />
+<h1>Minha agenda</h1>
+<p class="intro">Gerencie solicitações e horários disponíveis.</p>
+<button
+  class="button full"
+  (click)="opened.set(!opened())"
+  [disabled]="busy() || loading()"
+  [attr.aria-expanded]="opened()"
+  aria-controls="slot-editor"
+>
+  {{ opened() ? 'Fechar formulário de horário' : '+ Disponibilizar horário' }}
+</button>
+@if (error()) {
+<p class="alert error" role="alert">{{ error() }}</p>
+} @if (success()) {
+<p class="alert success" role="status">✓ {{ success() }}</p>
+} @if (opened()) {
+<section id="slot-editor" class="editor" aria-labelledby="slot-title">
+  <h2 id="slot-title" appFocusPanel tabindex="-1">Disponibilizar horário</h2>
+  <p class="hint">Informe o início e o fim no fuso {{ timezone() }}.</p>
+  <form [formGroup]="form" (ngSubmit)="createSlot()">
+    <label for="slot-start">Início</label
+    ><input
+      id="slot-start"
+      type="datetime-local"
+      formControlName="inicio"
+      aria-describedby="start-error"
+    />
+    <app-field-error
+      id="start-error"
+      [control]="form.controls.inicio"
+      message="Informe a data e a hora de início."
+    />
+    <label for="slot-end">Fim</label
+    ><input
+      id="slot-end"
+      type="datetime-local"
+      formControlName="fim"
+      aria-describedby="end-error"
+    />
+    <app-field-error
+      id="end-error"
+      [control]="form.controls.fim"
+      message="Informe a data e a hora de fim."
+    />
+    <button class="button full submit" type="submit" [disabled]="busy()">
+      {{ busy() ? 'Salvando…' : 'Salvar horário' }}
+    </button>
+  </form>
+</section>
+} @if (loading()) {
+<p role="status">Carregando agenda…</p>
+} @if (!loading()) {
+<div class="counts">
+  <span class="badge status-pendente">{{ pending() }} pendente(s)</span
+  ><span class="badge status-aprovado">{{ approved() }} aprovado(s)</span>
+</div>
+<h2 class="section-title">Solicitações recebidas</h2>
+<label for="status-filter">Filtrar por situação</label>
+<select id="status-filter" [value]="filter()" (change)="filter.set($any($event.target).value)">
+  <option value="">Todas</option>
+  <option value="pendente">Pendente</option>
+  <option value="aprovado">Aprovado</option>
+  <option value="recusado">Recusado</option>
+  <option value="cancelado">Cancelado</option>
+</select>
+<button class="text-button" (click)="load()" [disabled]="busy()">Atualizar agenda</button>
+@if (!visibleBookings().length && !error()) {
+<p class="empty">Nenhuma solicitação nesta situação.</p>
+}
+<div class="stack">
+  @for (booking of visibleBookings(); track booking.id) {
+  <article class="panel booking-card">
+    <div class="card-heading">
+      <h3>{{ booking.cliente_nome }}</h3>
+      <app-status [status]="booking.status" />
+    </div>
+    <p>{{ booking.servico_nome }} · {{ booking.inicio | businessDate:timezone() }}</p>
+    <p>Fim do bloco: {{ booking.fim | businessDate:timezone():true }} · {{ timezone() }}</p>
+    <p>Contato: {{ booking.cliente_telefone }}</p>
+    <p class="price">
+      {{ booking.preco_solicitado | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} · {{
+      duration(booking.duracao_minutos_solicitada) }}
+    </p>
+    @if (booking.status === 'pendente') {
+    <div class="actions">
+      <button class="button" [disabled]="busy()" (click)="decide(booking, 'aprovado')">
+        ✓ Aprovar<span class="sr-only"> pedido de {{ booking.cliente_nome }}</span>
+      </button>
+      <button class="secondary" [disabled]="busy()" (click)="decide(booking, 'recusado')">
+        Recusar<span class="sr-only"> pedido de {{ booking.cliente_nome }}</span>
+      </button>
+    </div>
+    } @if (booking.status === 'pendente' || booking.status === 'aprovado') {
+    <button class="text-button full" [disabled]="busy()" (click)="decide(booking, 'cancelado')">
+      Cancelar atendimento<span class="sr-only"> de {{ booking.cliente_nome }}</span>
+    </button>
+    } @if (booking.status === 'aprovado') {
+    <p class="availability">✓ Atendimento confirmado</p>
+    }
+  </article>
+  }
+</div>
+<h2 class="section-title">Horários cadastrados</h2>
+<p class="hint">Bloquear um horário não cancela atendimentos existentes.</p>
+@if (!slots().length && !error()) {
+<p class="empty">Nenhum horário cadastrado.</p>
+}
+<div class="stack">
+  @for (slot of slots(); track slot.id) {
+  <article class="panel">
+    <h3>{{ slot.inicio | businessDate:timezone() }}</h3>
+    <p>Até {{ slot.fim | businessDate:timezone() }} · {{ timezone() }}</p>
+    <p class="badge">{{ slotState(slot) }}</p>
+    <button class="secondary full" [disabled]="busy()" (click)="block(slot)">
+      {{ slot.bloqueado ? 'Desbloquear horário' : 'Bloquear horário' }}
+    </button>
+  </article>
+  }
+</div>
+}

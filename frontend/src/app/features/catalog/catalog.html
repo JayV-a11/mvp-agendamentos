@@ -1,0 +1,42 @@
+<app-heading subtitle="Catálogo público" />
+<h1>Encontre seu próximo estilo</h1>
+<p class="intro">Escolha a trança e solicite um horário pelo celular.</p>
+@if (loading()) {
+<p role="status">Carregando serviços…</p>
+} @if (error()) {
+<div class="alert error" role="alert">
+  {{ error() }} <button class="text-button" (click)="load()">Tentar novamente</button>
+</div>
+} @if (!loading() && !error()) {
+<p class="badge count">
+  {{ services().length }} {{ services().length === 1 ? 'serviço' : 'serviços' }}
+</p>
+@if (!services().length) {
+<p class="empty">Nenhum serviço disponível no momento. Volte em breve.</p>
+}
+<div class="stack">
+  @for (service of services(); track service.id) {
+  <article class="service-card">
+    <app-service-image [service]="service" />
+    <div class="service-content">
+      <h2>{{ service.nome }}</h2>
+      @if (service.descricao) {
+      <p class="description">{{ service.descricao }}</p>
+      }
+      <p class="price">
+        {{ service.preco | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} · {{
+        duration(service.duracao_minutos) }}
+      </p>
+      <a
+        class="button"
+        [routerLink]="['/agendar', service.id]"
+        [attr.aria-label]="'Agendar este serviço: ' + service.nome"
+        >Agendar este serviço</a
+      >
+    </div>
+  </article>
+  }
+</div>
+}
+<p class="footnote">Atendimento sujeito à confirmação da profissional.</p>
+<a class="footer-link" routerLink="/login">Área da profissional →</a>

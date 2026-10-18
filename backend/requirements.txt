@@ -1,0 +1,14 @@
+# Dependências de execução. Use requirements.lock como arquivo de constraints.
+fastapi==0.143.5
+pydantic==2.14.1
+pydantic-settings==2.16.0
+uvicorn==0.54.0
+SQLAlchemy==2.1.5
+alembic==1.20.0
+psycopg[binary]==3.3.6
+PyJWT==2.15.1
+pwdlib[argon2]==0.3.1
+# Decodifica, valida e regrava fotografias; não há equivalente no FastAPI.
+Pillow==13.0.0
+# Cliente HTTP do Storage, também reutilizado nos testes.
+httpx2==2.13.1
