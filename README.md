@@ -4,8 +4,8 @@ MVP web para uma trancista autônoma: catálogo público de serviços e solicita
 de horários, com administração de serviços, disponibilidade e agendamentos.
 O atendimento solicitado permanece pendente até a aprovação da administradora.
 
-O projeto utiliza arquitetura cliente-servidor em um monorepo. A interface será
-mobile-first e os fluxos de negócio passarão pela API.
+O projeto utiliza arquitetura cliente-servidor em um monorepo. A interface é
+mobile-first e os fluxos de negócio passam pela API.
 
 A proposta se relaciona ao ODS 8, especialmente à meta 8.3, ao apoiar a organização
 de um pequeno empreendimento autônomo. Essa contribuição é pretendida: redução de
@@ -19,8 +19,9 @@ frontend/   Aplicação Angular
 backend/    API FastAPI
 ```
 
-No frontend, `src/app/core/` concentra infraestrutura, `shared/` recebe recursos
-compartilhados e `features/` recebe os módulos funcionais conforme forem implementados.
+No frontend, `src/app/core/` concentra contratos, cliente HTTP e sessão; `shared/`
+contém componentes, validações e formatação; `features/` reúne catálogo, solicitação,
+login e administração. As rotas carregam os componentes sob demanda.
 
 No backend, `app/api/` contém as rotas HTTP, `core/` as configurações e `schemas/`
 os contratos de dados. `repositories/` consulta a persistência e `services/` aplica
@@ -33,14 +34,14 @@ administradores, serviços, horários e agendamentos. `alembic/` contém as migr
 
 | Camada | Responsabilidade | Estado atual |
 | --- | --- | --- |
-| Angular | Apresentação, navegação e formulários | Componente inicial, Router e HttpClient configurados |
+| Angular | Apresentação, navegação e formulários | Catálogo, solicitação, login, agenda e gerenciamento de serviços integrados |
 | FastAPI | Contratos HTTP, validação e regras de negócio | Login, sessão, catálogo, horários, agendamentos e adaptador de fotos |
 | SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Quatro entidades de negócio e duas tabelas técnicas para sessão e limitação de tentativas |
 
-Frontend e backend são processos independentes. A interface ainda contém somente
-a base técnica. Os fluxos do backend podem ser exercitados por HTTP; a integração
-das telas Angular com esses endpoints permanece pendente.
-Credenciais de banco e de armazenamento privilegiadas ficarão somente no backend.
+Frontend e backend são processos independentes. HttpClient consome `/api`; no
+desenvolvimento, `proxy.conf.json` encaminha essas requisições ao FastAPI em
+127.0.0.1:8000, removendo o prefixo. Cookies e fotos ficam na mesma origem do
+navegador. Credenciais de banco e Storage privilegiadas ficam somente no backend.
 
 ## Tecnologias
 
@@ -48,7 +49,8 @@ Credenciais de banco e de armazenamento privilegiadas ficarão somente no backen
 - Backend: Python 3.13, FastAPI, Pydantic, Uvicorn, SQLAlchemy 2.x, Psycopg e Alembic.
 - Persistência: PostgreSQL no Supabase; Storage para fotografias quando configurado.
 - Autenticação: PyJWT e pwdlib com Argon2, conforme a especificação.
-- Testes: Vitest 5.0.5 no frontend; Pytest e HTTPX2 no backend.
+- Testes: Vitest 5.0.5 com coverage V8 no frontend; Pytest e HTTPX2 no backend;
+  Playwright 1.64.1 para integração real no navegador.
 
 O frontend utiliza Angular e Angular CLI 22.2.3, com versões instaladas registradas
 em `frontend/package-lock.json`.
@@ -89,9 +91,15 @@ npm.cmd start
 Acesse `http://localhost:4200`. Encerre o servidor com `Ctrl+C`.
 O Angular CLI é uma dependência local; não é necessário instalá-lo globalmente.
 
-Não são necessárias variáveis de ambiente para iniciar a base do frontend.
-Não há conexão com API ou banco neste estágio. Não coloque segredos em arquivos
-do frontend, pois o código distribuído ao navegador é público.
+Inicie também o backend conforme as instruções abaixo. O frontend não usa segredos
+nem exige `.env`. Com banco vazio, apresenta estados vazios; os serviços reais são
+cadastrados pela administradora. Sem API, apresenta erro de conexão e permite tentar
+novamente. Não há dados de catálogo ou respostas simuladas na aplicação.
+
+Rotas: `/` (catálogo), `/agendar/:id` (solicitação), `/login`, `/admin/agenda` e
+`/admin/servicos`. A administração permite criar/bloquear horários, decidir pedidos,
+gerenciar serviços e fotografias. O primeiro acesso administrativo exige cadastrar
+a administradora pelo comando de bootstrap documentado abaixo.
 
 ## Build e testes
 
@@ -99,12 +107,98 @@ Dentro de `frontend/`:
 
 ```powershell
 npm.cmd run build
-npm.cmd test -- --watch=false
+npm.cmd run test:run
+npm.cmd run test:coverage
 ```
 
 O build de produção é gerado em `frontend/dist/frontend/browser/`.
-Os testes utilizam a integração nativa do Angular CLI com Vitest e ambiente DOM
-de testes. Ainda não há ferramenta de lint configurada.
+Os testes utilizam a integração nativa do Angular CLI com Vitest e jsdom.
+O provedor `@vitest/coverage-v8` tem a mesma versão do Vitest. A suíte não precisa
+de API, Supabase ou credenciais: utiliza HttpTestingController e fixtures apenas
+nos testes unitários, sem substituir a integração real da aplicação.
+
+### Coverage e captura do resultado dos testes Angular
+
+`npm.cmd run test:run` executa uma vez e encerra. Para a captura do terminal,
+mostre o comando e o resumo final **Test Files** e **Tests**, com os totais aprovados
+e o código de saída zero. `npm.cmd run test:print` lista os nomes dos testes com
+reporter verbose e também termina com esse resumo. Não é necessário iniciar
+frontend/backend para executar esses comandos.
+
+`npm.cmd run test:coverage` executa a mesma suíte e exibe percentuais de
+Statements, Branches, Functions e Lines. Gera HTML, LCOV e JSON em
+`frontend/coverage/frontend/`. Dentro de frontend/, abra o relatório HTML com:
+
+```powershell
+Invoke-Item .\coverage\frontend\index.html
+```
+
+A cobertura inclui todos os arquivos TypeScript de `src/app/`, inclusive rotas,
+configuração, componentes e serviços; somente os próprios arquivos de teste são
+excluídos. Tipos sem código executável não geram linhas instrumentadas. O bootstrap
+`src/main.ts` é verificado pelo build e pelos testes de navegador. Limites mínimos:
+95% de linhas, instruções e funções; 90% de ramificações. A execução falha se não
+atingir esses limites. Os resultados medem execução de código e não substituem
+as verificações de integração, acessibilidade ou avaliação com usuários.
+
+Relatórios gerados, traces e capturas de teste são locais e ignorados pelo Git.
+O projeto não possui ferramenta de lint semântico configurada.
+Prettier 3.9.10 padroniza a formatação, sem substituir lint ou testes. Execute
+`npm.cmd run format:check` para conferir e `npm.cmd run format` para formatar.
+
+### Integração no navegador com banco isolado
+
+O teste Playwright exercita o Angular compilado, FastAPI e PostgreSQL reais, sem
+interceptar ou simular endpoints. O Pytest cria o banco temporário, uma senha
+aleatória de teste e um servidor HTTP em loopback; encerra tudo ao terminar.
+Serviços e contatos sintéticos existem somente nesse banco descartável. A aplicação
+serve os mesmos arquivos do build; rotas internas retornam o index.html da SPA.
+
+Pré-requisitos: build atualizado, dependências npm/Python instaladas, binários
+PostgreSQL indicados anteriormente e Microsoft Edge instalado. Na raiz:
+
+```powershell
+cd frontend
+npm.cmd run build
+cd ..\backend
+$env:PYTHONIOENCODING = 'utf-8'
+.\.venv\Scripts\python.exe -B -m pytest -c pyproject.toml tests/integration/test_frontend_e2e.py -q -s -W error -p no:cacheprovider --basetemp ..\.tools\pytest-e2e --postgres-bin ..\.tools\postgresql17\pgsql\bin --frontend-e2e
+```
+
+Esse comando não utiliza DATABASE_URL nem o banco Supabase. Para incluir upload e
+remoção de fotos no Storage real, acrescente `--storage-external` após configurar
+o bucket. Somente objetos com UUIDs exclusivos do teste são criados e removidos;
+o banco continua local. Sem essa opção, o fluxo de fotos real não é executado.
+O runner recusa execução direta sem a configuração de isolamento fornecida pelo
+Pytest. Para usar Chrome instalado, defina `$env:E2E_BROWSER = 'chrome'` antes do
+comando; o padrão é `msedge`.
+
+O navegador usa viewport de 390 px e fuso Asia/Tokyo para verificar datas e horas
+de Brasília. O fluxo cobre login inválido/válido, criação de serviços e blocos,
+solicitação pendente, decisões, bloqueio, ativação, edição e logout. Também confere
+rótulos, contraste, áreas de toque e viewport de 320 px. A ampliação por CSS de 200%
+é uma verificação complementar, sem equivaler a teste de zoom nativo ou smartphone
+físico. A avaliação com leitor de tela e a validação presencial permanecem pendentes.
+
+Capturas reais ficam em `frontend/test-results/`, relatório em
+`frontend/playwright-report/index.html` e traces são preservados em caso de falha.
+Todos são ignorados pelo Git. Para abrir o relatório após a execução, use em frontend/:
+
+```powershell
+npx.cmd playwright show-report
+```
+
+O coverage do Vitest é independente desse teste: seus percentuais não incluem a
+execução Playwright. O teste de navegador comprova integração funcional, enquanto
+o coverage identifica os caminhos exercitados pela suíte Angular.
+
+### Execução em produção
+
+Publique `frontend/dist/frontend/browser/` como SPA, com fallback das rotas internas
+para index.html. Encaminhe `/api/*` ao backend, removendo `/api` e preservando os
+cookies e o cabeçalho Origin. `proxy.conf.json` é usado apenas por ng serve; não é
+embutido no build. Configure HTTPS, CORS e cookies de produção no backend. Nenhuma
+credencial privilegiada deve ser incluída no bundle Angular.
 
 Na raiz, verifique também a formatação do diff:
 
@@ -236,16 +330,17 @@ cd backend
 
 | Verificação | Resultado esperado |
 | --- | --- |
-| Abrir `http://localhost:4200` | Exibir o título “Agendamentos” |
+| Abrir `http://localhost:4200` | Exibir o catálogo real ou o estado vazio, com identidade creme/vinho |
 | Consultar `http://127.0.0.1:8000/health` | HTTP 200 com `{"status":"ok"}` |
 | Abrir `http://127.0.0.1:8000/docs` | Documentação das operações públicas e administrativas |
-| Executar os testes do frontend | Um teste de inicialização aprovado |
+| Executar os testes do frontend | Componentes, formulários, contratos HTTP, sessão, rotas e erros aprovados |
 | Executar os testes sem banco do backend | Saúde, OpenAPI, CORS e configuração aprovados |
 | Executar a suíte com `--postgres-bin` | Incluir a validação de migrações e integridade no PostgreSQL temporário |
 | Executar `pip check` no ambiente virtual | Nenhuma dependência quebrada |
 
-Os resultados da tabela são critérios para a sua execução. A resposta de saúde e
-o teste do componente não demonstram que catálogo ou agendamento já funcionam.
+Os resultados da tabela são critérios para a sua execução. A resposta de saúde
+isolada não demonstra que catálogo ou agendamento funcionam; utilize também os
+fluxos nas telas e os testes de integração descritos abaixo.
 Encerre cada servidor no respectivo terminal com `Ctrl+C`.
 
 ## Solução de problemas locais
@@ -360,13 +455,15 @@ O MVP prevê uma única administradora e clientes sem conta. Pagamentos, notific
 automáticas, integração com WhatsApp e gestão de múltiplos profissionais estão fora
 do escopo. A interface priorizará smartphones, incluindo telas de 320 px de largura.
 
-O frontend contém somente a base técnica e um componente inicial. Não há telas de
-catálogo, agendamento ou administração, dados simulados ou regras de negócio.
+O frontend implementa os fluxos público e administrativo com a identidade visual
+do protótipo, navegação, estados de carregamento/vazio/erro/sucesso, formulários
+reativos e dados da API. Não inclui registros fictícios para demonstração.
 O backend oferece autenticação e as operações obrigatórias de serviços, horários
 e agendamentos. O adaptador de fotografias exige a configuração do Storage
 descrita abaixo. Reagendamento (RF07) é desejável e permanece pendente.
-As telas, a integração Angular, a validação presencial, a revisão visual e as
-medições de acessibilidade e desempenho permanecem pendentes.
+A integração das telas foi exercitada em navegador real com banco isolado. A
+avaliação presencial, a revisão em smartphone físico, a medição de desempenho
+RNF03 e a implantação externa permanecem pendentes.
 
 ## Autenticação e ambiente
 
@@ -410,9 +507,12 @@ somente as duas tabelas técnicas, índices e proteção RLS/grants. Não altera
 das quatro entidades de negócio. Aplique com `alembic upgrade head`, sem executar
 também o SQL exportado. Sessões são invalidadas se JWT_SECRET for substituído.
 
-Para cookies funcionarem no frontend local, use o mesmo hostname nos dois lados:
-Angular em `http://localhost:4200` e API em `http://localhost:8000`. O frontend usará
-HttpClient com credenciais. Evite misturar localhost e 127.0.0.1 na navegação.
+No frontend local, navegue em `http://localhost:4200`. HttpClient usa credenciais
+somente para `/api/`; o proxy encaminha ao backend em 127.0.0.1:8000. O JWT continua
+HttpOnly, enquanto os dados de sessão/CSRF ficam somente em memória, sem localStorage.
+O guard restaura a sessão por cookie; o interceptor trata expiração e envia CSRF nas
+mutações. Guards não substituem autorização no servidor. Logout depende da confirmação
+da API; uma falha não é apresentada como sessão encerrada.
 Produção exige JWT_SECRET, banco, cookie Secure e origens HTTPS explícitas.
 Disponibilize a API por HTTPS no proxy da hospedagem e configure a confiança em
 forwarded headers apenas para esse proxy. SameSite=None exige HTTPS e ainda está
@@ -422,7 +522,10 @@ sujeito às regras de cookies de terceiros do navegador; prefira domínios do me
 
 Listagens usam `limite` (1 a 100, padrão 100) e `inicio` (offset, padrão 0).
 Consultas da agenda aceitam `de` inclusivo e `ate` exclusivo, com offset de timezone.
-GET /publico/configuracao informa o fuso do negócio para a futura interface.
+GET /publico/configuracao informa o fuso do negócio para a interface. Datas de
+calendário são exibidas sem conversão de fuso; instantes usam Intl com o fuso do
+servidor. O cadastro de horários converte datetime-local explicitamente nesse fuso,
+sem usar o fuso do dispositivo como autoridade.
 
 | Método e rota | Acesso e comportamento |
 | --- | --- |

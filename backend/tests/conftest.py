@@ -12,6 +12,8 @@ def pytest_addoption(parser):
     )
     parser.addoption('--storage-external', action='store_true', default=False,
         help='Autoriza verificar fotos no Storage real usando somente objetos UUID dos testes isolados.')
+    parser.addoption('--frontend-e2e', action='store_true', default=False,
+        help='Inicia a aplicação Angular compilada e executa Playwright com banco local isolado.')
 
 
 @pytest.fixture

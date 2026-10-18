@@ -1,9 +1,13 @@
 main {
-  max-width: 32rem;
+  max-width: 390px;
+  min-height: 100svh;
   margin-inline: auto;
-  padding: 1rem;
+  padding: 28px 24px 32px;
+  background: var(--cream);
 }
-
-h1 {
-  overflow-wrap: anywhere;
+@media (min-width: 480px) {
+  main {
+    margin-block: 24px;
+    border-radius: 24px;
+  }
 }

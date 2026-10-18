@@ -1,0 +1,139 @@
+<app-heading subtitle="Área administrativa · catálogo" />
+<h1>Gerenciar catálogo</h1>
+<p class="intro">Cadastre e atualize os serviços de tranças.</p>
+<button class="button full" type="button" [disabled]="busy() || loading()" (click)="edit(null)">
+  + Cadastrar novo serviço
+</button>
+@if (error()) {
+<p role="alert" class="alert error">{{ error() }}</p>
+} @if (success()) {
+<p role="status" class="alert success">✓ {{ success() }}</p>
+} @if (opened()) {
+<section class="editor" aria-labelledby="service-form-title">
+  <h2 id="service-form-title" appFocusPanel tabindex="-1">
+    {{ editing() ? 'Editar serviço' : 'Novo serviço' }}
+  </h2>
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <fieldset [disabled]="busy() || loading()">
+      <label for="service-name">Nome</label
+      ><input
+        id="service-name"
+        formControlName="nome"
+        maxlength="150"
+        aria-describedby="service-name-error"
+      />
+      <app-field-error
+        id="service-name-error"
+        [control]="form.controls.nome"
+        message="Informe um nome de até 150 caracteres."
+      />
+      <label for="description">Descrição (opcional)</label
+      ><textarea
+        id="description"
+        formControlName="descricao"
+        maxlength="5000"
+        rows="3"
+        aria-describedby="description-error"
+      ></textarea>
+      <app-field-error
+        id="description-error"
+        [control]="form.controls.descricao"
+        message="A descrição deve ter até 5.000 caracteres."
+      />
+      <label for="price">Preço (R$)</label
+      ><input
+        id="price"
+        inputmode="decimal"
+        formControlName="preco"
+        aria-describedby="price-error"
+      />
+      <app-field-error
+        id="price-error"
+        [control]="form.controls.preco"
+        message="Informe um preço positivo, com até duas casas decimais."
+      />
+      <label for="duration">Duração estimada (minutos)</label
+      ><input
+        id="duration"
+        type="number"
+        min="1"
+        step="1"
+        formControlName="duracao_minutos"
+        aria-describedby="duration-error"
+      />
+      <app-field-error
+        id="duration-error"
+        [control]="form.controls.duracao_minutos"
+        message="Informe a duração em minutos inteiros, maior que zero."
+      />
+      <label for="photo">Fotografia (opcional)</label
+      ><input
+        id="photo"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        (change)="selectFile($event)"
+        aria-describedby="photo-help photo-error"
+      />
+      <p id="photo-help" class="hint">JPEG, PNG ou WebP de até 5 MB.</p>
+      @if (fileError()) {
+      <p id="photo-error" class="field-error" role="alert">{{ fileError() }}</p>
+      } @if (editing()?.imagem_url) {
+      <button type="button" class="secondary" (click)="removePhoto()">Remover foto atual</button> }
+      <label class="checkbox"
+        ><input type="checkbox" formControlName="ativo" />Disponível no catálogo</label
+      >
+    </fieldset>
+    <button class="button full" type="submit" [disabled]="busy() || loading()">
+      {{ busy() ? 'Salvando…' : 'Salvar serviço' }}
+    </button>
+    <button type="button" class="text-button full" (click)="opened.set(false)" [disabled]="busy()">
+      Fechar formulário
+    </button>
+  </form>
+</section>
+}
+<h2 class="section-title">Serviços cadastrados</h2>
+@if (loading()) {
+<p role="status">Carregando serviços…</p>
+} @if (!loading() && !services().length && !error()) {
+<p class="empty">Nenhum serviço cadastrado. Cadastre o primeiro serviço acima.</p>
+} @if (error() && !opened()) {
+<button type="button" class="secondary full" (click)="load()" [disabled]="busy()">
+  Atualizar catálogo
+</button>
+}
+<div class="stack">
+  @for (service of services(); track service.id) {
+  <article class="service-card">
+    <app-service-image [service]="service" [admin]="true" />
+    <div class="service-content">
+      <h3>{{ service.nome }}</h3>
+      <p class="price">
+        {{ service.preco | currency:'BRL':'symbol':'1.2-2':'pt-BR' }} · {{
+        duration(service.duracao_minutos) }}
+      </p>
+      <p class="availability" [class.inactive]="!service.ativo">
+        {{ service.ativo ? 'Ativo · visível no catálogo' : 'Inativo · fora do catálogo' }}
+      </p>
+      <div class="actions">
+        <button
+          class="text-button"
+          [disabled]="busy() || loading()"
+          (click)="edit(service)"
+          [attr.aria-label]="'Editar ' + service.nome"
+        >
+          Editar
+        </button>
+        <button
+          class="text-button"
+          [disabled]="busy() || loading()"
+          (click)="toggle(service)"
+          [attr.aria-label]="(service.ativo ? 'Desativar ' : 'Reativar ') + service.nome"
+        >
+          {{ service.ativo ? 'Desativar' : 'Reativar' }}
+        </button>
+      </div>
+    </div>
+  </article>
+  }
+</div>

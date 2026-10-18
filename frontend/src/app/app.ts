@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, viewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
@@ -7,4 +7,11 @@ import { RouterOutlet } from '@angular/router';
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
-export class App {}
+export class App {
+  readonly content = viewChild.required<ElementRef<HTMLElement>>('content');
+
+  skipToContent(event: Event) {
+    event.preventDefault();
+    this.content().nativeElement.focus();
+  }
+}
