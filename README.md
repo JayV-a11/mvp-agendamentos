@@ -19,7 +19,8 @@ compartilhados e `features/` recebe os módulos funcionais conforme forem implem
 
 No backend, `app/api/` contém as rotas HTTP, `core/` as configurações e `schemas/`
 os contratos de dados. As pastas `models/`, `repositories/`, `services/` e `db/`
-estão reservadas para persistência e regras de negócio futuras.
+receberão persistência e regras de negócio. `db/` já contém a base declarativa,
+a construção do engine e o comando de verificação de conexão; ainda não há modelos.
 
 ## Arquitetura e comunicação
 
@@ -27,7 +28,7 @@ estão reservadas para persistência e regras de negócio futuras.
 | --- | --- | --- |
 | Angular | Apresentação, navegação e formulários | Componente inicial, Router e HttpClient configurados |
 | FastAPI | Contratos HTTP, validação e regras de negócio | Factory, configuração de ambiente e endpoint de saúde |
-| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Ainda não implementados |
+| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Conexão validada e Alembic preparado; modelos e tabelas pendentes |
 
 Frontend e backend são processos independentes. Não há chamadas entre eles neste
 estágio. Na implementação dos fluxos de negócio, o Angular consumirá a API por
@@ -37,7 +38,7 @@ Credenciais de banco e de armazenamento privilegiadas ficarão somente no backen
 ## Tecnologias
 
 - Frontend: Angular 22, TypeScript, Router, HttpClient, Reactive Forms e CSS.
-- Backend: Python 3.13, FastAPI, Pydantic e Uvicorn; SQLAlchemy 2.x e Alembic previstos.
+- Backend: Python 3.13, FastAPI, Pydantic, Uvicorn, SQLAlchemy 2.x, Psycopg e Alembic.
 - Persistência: PostgreSQL no Supabase; Storage para fotografias quando configurado.
 - Autenticação: PyJWT e pwdlib com Argon2, conforme a especificação.
 - Testes: Vitest 5.0.5 no frontend; Pytest e HTTPX2 no backend.
@@ -48,6 +49,8 @@ O backend utiliza FastAPI 0.143.5, Pydantic 2.14.1, pydantic-settings 2.16.0 e
 Uvicorn 0.54.0. `backend/requirements.txt` declara as dependências de execução e
 `requirements-dev.txt` acrescenta Pytest 9.1.1 e HTTPX2 2.13.1. As versões transitivas
 estão fixadas em `backend/requirements.lock`, utilizado como arquivo de constraints.
+Persistência preparada com SQLAlchemy 2.1.5, Alembic 1.20.0 e Psycopg 3.3.6
+(distribuição binária para dispensar compilação local do driver).
 
 ## Pré-requisitos do frontend
 
@@ -135,6 +138,14 @@ O padrão permite somente essa origem, o método GET e requisições sem cookies
 A autenticação e a política de cookies serão implementadas em etapa própria.
 O arquivo `.env` é local e não deve conter valores sensíveis versionados.
 
+`DATABASE_URL` é opcional enquanto não houver operações de banco: vazio significa
+que o PostgreSQL ainda não foi configurado. Quando preenchido, deve usar o driver
+`postgresql+psycopg`, com host, banco, usuário e senha. A configuração oculta o
+valor em representações e mensagens de validação. O engine exige conexão SSL
+(`require` por padrão; também aceita `verify-ca` ou `verify-full`) e timeout de
+conexão de dez segundos. `require` criptografa o tráfego, mas não equivale à
+validação da identidade do servidor por `verify-full`.
+
 Verifique a API em outro terminal:
 
 ```powershell
@@ -181,7 +192,7 @@ cd backend
 | Consultar `http://127.0.0.1:8000/health` | HTTP 200 com `{"status":"ok"}` |
 | Abrir `http://127.0.0.1:8000/docs` | Documentação com a operação GET /health |
 | Executar os testes do frontend | Um teste de inicialização aprovado |
-| Executar os testes do backend | 14 testes de saúde, OpenAPI, CORS e configuração aprovados |
+| Executar os testes do backend | Suíte de saúde, OpenAPI, CORS e infraestrutura aprovada, sem depender de banco |
 | Executar `pip check` no ambiente virtual | Nenhuma dependência quebrada |
 
 Os resultados da tabela são critérios para a sua execução. A resposta de saúde e
@@ -202,6 +213,55 @@ Encerre cada servidor no respectivo terminal com `Ctrl+C`.
 CORS controla o uso da resposta pelo navegador; não autentica usuários nem bloqueia
 clientes HTTP externos. A API ainda não oferece operações administrativas.
 
+## Preparação do PostgreSQL no Supabase
+
+Para configurar o banco em um novo ambiente, crie um projeto exclusivo deste MVP no
+[Supabase Dashboard](https://supabase.com/dashboard), selecione sua organização,
+informe nome, região e uma senha forte para o banco e aguarde o provisionamento.
+Guarde a senha em local seguro.
+
+Abra **Connect** no projeto e copie a URI de conexão PostgreSQL. Para a primeira
+verificação em uma rede IPv4, utilize **Session pooler**, porta 5432. Conexão direta
+é outra opção quando a rede alcançar o endpoint disponibilizado pelo projeto.
+Copie host e usuário do painel; não deduza esses dados pela região. Consulte a
+[documentação oficial de conexões](https://supabase.com/docs/guides/database/connecting-to-postgres).
+
+Preencha somente `DATABASE_URL` em `backend/.env`. Preserve `CORS_ORIGINS` e não
+sobrescreva outras configurações existentes. Troque o prefixo da URI por
+`postgresql+psycopg://`, substitua o marcador de senha pela senha do banco e
+codifique caracteres reservados da senha com percent-encoding. Não use API keys
+no lugar da conexão PostgreSQL. O formato abaixo contém apenas marcadores:
+
+```dotenv
+DATABASE_URL='postgresql+psycopg://USUARIO:SENHA_CODIFICADA@HOST:5432/postgres'
+```
+
+Depois de configurar, na pasta `backend/`, execute:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.db.check
+```
+
+Esse comando usa SQLAlchemy e Psycopg reais para executar somente `SELECT 1`.
+Sucesso retorna código zero e a mensagem de conexão validada. Falhas retornam
+código um com mensagem sem credenciais ou detalhes internos. A verificação não
+cria tabelas, não aplica migrações e não comprova ainda as regras do agendamento.
+
+O ambiente Alembic está em `backend/alembic/`; a conexão vem de Settings, sem URL
+ou senha no `alembic.ini`. O engine não mantém pool local (`NullPool`); o ciclo
+de conexão é explícito e pode usar o pooler de sessão do Supabase. Para inspecionar
+o histórico sem conexão:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic heads
+.\.venv\Scripts\python.exe -m alembic history
+```
+
+Ambos devem terminar sem revisões listadas. Ainda não há tabelas, revisões de
+negócio ou SQL a executar no SQL Editor. A migração inicial será entregue em outro
+incremento, após a conexão real ser validada. Testes locais da configuração e do
+template Alembic não equivalem a testes de integração PostgreSQL.
+
 ## Escopo e estado atual
 
 O MVP prevê uma única administradora e clientes sem conta. Pagamentos, notificações
@@ -210,6 +270,7 @@ do escopo. A interface priorizará smartphones, incluindo telas de 320 px de lar
 
 O frontend contém somente a base técnica e um componente inicial. Não há telas de
 catálogo, agendamento ou administração, dados simulados ou regras de negócio.
-O backend contém apenas configuração, estrutura em camadas e o endpoint técnico
-`GET /health`. Autenticação, persistência, funcionalidades de negócio, integração
-do frontend com a API e configuração do Supabase permanecem pendentes.
+O backend contém configuração, estrutura em camadas, o endpoint técnico
+`GET /health` e a infraestrutura inicial de conexão/migração. A conexão PostgreSQL
+foi validada com `SELECT 1`, sem alterar tabelas. Modelos, tabelas, autenticação,
+funcionalidades de negócio e integração do frontend com a API permanecem pendentes.
