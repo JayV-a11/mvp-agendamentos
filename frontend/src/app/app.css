@@ -1,0 +1,9 @@
+main {
+  max-width: 32rem;
+  margin-inline: auto;
+  padding: 1rem;
+}
+
+h1 {
+  overflow-wrap: anywhere;
+}

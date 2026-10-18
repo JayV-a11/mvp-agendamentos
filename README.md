@@ -4,68 +4,88 @@ MVP web para uma trancista autônoma: catálogo público de serviços e solicita
 de horários, com administração de serviços, disponibilidade e agendamentos.
 O atendimento solicitado permanece pendente até a aprovação da administradora.
 
-O desenvolvimento é incremental. Este repositório ainda não contém uma aplicação
-executável; o primeiro incremento prepara somente a estrutura e as regras do projeto.
+O projeto utiliza arquitetura cliente-servidor em um monorepo. A interface será
+mobile-first e os fluxos de negócio passarão pela API.
 
 ## Estrutura
 
 ```text
-frontend/   Aplicação Angular (a inicializar no próximo incremento autorizado)
-backend/    API FastAPI (a inicializar em incremento próprio)
-docs/       Requisitos, protocolo e documentação técnica
+frontend/   Aplicação Angular
+backend/    API FastAPI (a implementar)
 ```
 
-Os arquivos `.gitkeep` mantêm os diretórios vazios no Git até a criação dos projetos.
+No frontend, `src/app/core/` concentra infraestrutura, `shared/` recebe recursos
+compartilhados e `features/` recebe os módulos funcionais conforme forem implementados.
 
-## Stack prevista
+## Tecnologias
 
 - Frontend: Angular 22, TypeScript, Router, HttpClient, Reactive Forms e CSS.
 - Backend: Python 3.13, FastAPI, Pydantic, SQLAlchemy 2.x e Alembic.
 - Persistência: PostgreSQL no Supabase; Storage para fotografias quando configurado.
 - Autenticação: PyJWT e pwdlib com Argon2, conforme a especificação.
-- Testes: Pytest e Vitest 5.0, com compatibilidade a confirmar antes da instalação.
+- Testes: Vitest 5.0.5 no frontend; Pytest previsto para o backend.
 
-As versões efetivas das dependências serão registradas nos respectivos incrementos.
-Não há dependências instaladas ou arquivos de ambiente necessários nesta entrega.
+O frontend utiliza Angular e Angular CLI 22.2.3, com versões instaladas registradas
+em `frontend/package-lock.json`.
+O backend e suas dependências ainda não foram inicializados.
 
-## Requisitos e protocolo
+## Pré-requisitos do frontend
 
-- [Especificação mestra](docs/PROJECT_SPEC.md).
-- [Protocolo incremental e padrão de commits em pt-BR](docs/DEVELOPMENT_PROTOCOL.md).
-- [Análise inicial do ambiente](docs/ENVIRONMENT.md).
+- Node.js compatível com o Angular 22: `^22.22.3`, `^24.15.0` ou `>=26.0.0`.
+- npm (distribuído com o Node.js).
 
-O protocolo e a padronização em pt-BR substituem as instruções anteriores sobre
-commits automáticos e os exemplos de mensagens em inglês da especificação.
-O usuário revisa, testa e realiza cada commit antes de autorizar outro incremento.
+Se `node` ou `npm` não forem reconhecidos no PowerShell e estiverem instalados no
+caminho padrão do Windows, ajuste o PATH somente da sessão:
+
+```powershell
+$env:PATH = 'C:\Program Files\nodejs;' + $env:PATH
+node --version
+npm.cmd --version
+```
+
+## Instalação e execução local
+
+Na raiz do repositório:
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd start
+```
+
+Acesse `http://localhost:4200`. Encerre o servidor com `Ctrl+C`.
+O Angular CLI é uma dependência local; não é necessário instalá-lo globalmente.
+
+Não são necessárias variáveis de ambiente para iniciar a base do frontend.
+Não há conexão com API ou banco neste estágio. Não coloque segredos em arquivos
+do frontend, pois o código distribuído ao navegador é público.
+
+## Build e testes
+
+Dentro de `frontend/`:
+
+```powershell
+npm.cmd run build
+npm.cmd test -- --watch=false
+```
+
+O build de produção é gerado em `frontend/dist/frontend/browser/`.
+Os testes utilizam a integração nativa do Angular CLI com Vitest e ambiente DOM
+de testes. Ainda não há ferramenta de lint configurada.
+
+Na raiz, verifique também a formatação do diff:
+
+```powershell
+git diff --check
+```
 
 ## Escopo e estado atual
 
 O MVP prevê uma única administradora e clientes sem conta. Pagamentos, notificações
 automáticas, integração com WhatsApp e gestão de múltiplos profissionais estão fora
-do escopo. A interface será mobile-first, conforme a referência Figma da especificação.
+do escopo. A interface priorizará smartphones, incluindo telas de 320 px de largura.
 
-Concluído neste incremento: diretórios, regras de arquivos ignorados, configuração
-de edição e registro das instruções fornecidas. Angular, FastAPI, banco,
-autenticação, funcionalidades de negócio e testes de aplicação estão pendentes.
-
-Os procedimentos de instalação, execução local e testes de cada aplicação serão
-adicionados quando os respectivos projetos existirem. O Supabase não será
-configurado na Etapa 1. Não inserir credenciais no código ou na documentação.
-
-## Verificação desta entrega
-
-Na raiz do repositório, em PowerShell:
-
-```powershell
-git diff --check
-git status --short
-git diff -- README.md
-git ls-files --others --exclude-standard
-git check-ignore --no-index frontend/node_modules/exemplo backend/.venv/exemplo backend/.env frontend/.env.local
-git check-ignore --no-index backend/.env.example frontend/.env.example
-```
-
-O primeiro comando não deve emitir erros. A consulta de ignorados deve listar
-dependências e ambientes locais. A última consulta não deve listar os arquivos
-`.env.example` e deve retornar código 1, pois esses exemplos precisam ser versionáveis.
-Não há build, servidor ou suíte de testes de aplicação neste incremento.
+O frontend contém somente a base técnica e um componente inicial. Não há telas de
+catálogo, agendamento ou administração, dados simulados ou regras de negócio.
+Backend, autenticação, persistência, integrações HTTP e configuração do Supabase
+permanecem pendentes. Os comandos do backend serão documentados quando ele existir.

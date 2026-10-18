@@ -6,6 +6,7 @@
 
 # JavaScript / Angular
 node_modules/
+.npm-cache/
 .angular/
 dist/
 coverage/
@@ -34,3 +35,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Documentação e instruções locais; somente o README da raiz é versionado
+*.md
+!/README.md
