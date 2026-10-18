@@ -18,9 +18,10 @@ No frontend, `src/app/core/` concentra infraestrutura, `shared/` recebe recursos
 compartilhados e `features/` recebe os módulos funcionais conforme forem implementados.
 
 No backend, `app/api/` contém as rotas HTTP, `core/` as configurações e `schemas/`
-os contratos de dados. As pastas `models/`, `repositories/`, `services/` e `db/`
-receberão persistência e regras de negócio. `db/` já contém a base declarativa,
-a construção do engine e o comando de verificação de conexão; ainda não há modelos.
+os contratos de dados. `repositories/` e `services/` receberão os fluxos de negócio.
+`db/` contém a base declarativa,
+a construção do engine e o comando de verificação de conexão. `models/` define
+administradores, serviços, horários e agendamentos. `alembic/` contém as migrações.
 
 ## Arquitetura e comunicação
 
@@ -28,7 +29,7 @@ a construção do engine e o comando de verificação de conexão; ainda não h�
 | --- | --- | --- |
 | Angular | Apresentação, navegação e formulários | Componente inicial, Router e HttpClient configurados |
 | FastAPI | Contratos HTTP, validação e regras de negócio | Factory, configuração de ambiente e endpoint de saúde |
-| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Conexão validada e Alembic preparado; modelos e tabelas pendentes |
+| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Quatro modelos e migração inicial com restrições de integridade |
 
 Frontend e backend são processos independentes. Não há chamadas entre eles neste
 estágio. Na implementação dos fluxos de negócio, o Angular consumirá a API por
@@ -169,6 +170,40 @@ HTTPX2 atende à integração atual do
 [TestClient do Starlette](https://www.starlette.io/testclient/).
 Não há ferramenta de lint configurada no backend.
 
+### Testes de integração PostgreSQL
+
+Os testes em `backend/tests/integration/` criam um cluster PostgreSQL temporário,
+com senha aleatória, banco exclusivo `mvp_integracao` e escuta em loopback. Aplicam
+migrações reais e encerram o servidor ao terminar. Não leem `DATABASE_URL` nem
+usam o projeto Supabase. O SSL desativado nesse cluster é restrito aos testes
+locais; a conexão da aplicação continua exigindo SSL.
+
+É necessário disponibilizar os executáveis `initdb` e `pg_ctl`. Os binários Windows
+17.11 utilizados na validação estão em `.tools/postgresql17/pgsql/bin/`, ignorados
+pelo Git e obtidos pela [página oficial de distribuição](https://www.postgresql.org/download/windows/).
+Em outra máquina, informe o diretório equivalente da sua instalação PostgreSQL 17.
+
+Dentro de `backend/`, neste ambiente Windows:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m pytest -c pyproject.toml tests -q -W error -p no:cacheprovider --basetemp ..\.tools\pytest-local --postgres-bin ..\.tools\postgresql17\pgsql\bin
+```
+
+O diretório `--basetemp` é exclusivo e descartável para testes. Sem `--postgres-bin`,
+os casos de integração são explicitamente ignorados; a aprovação dos demais testes
+não comprova as restrições do PostgreSQL. Para executar apenas a suíte sem banco:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -c pyproject.toml tests -q -m "not integration"
+```
+
+A integração verifica chaves e CHECKs, campos obrigatórios, defaults, dinheiro com
+Decimal, timezone, ausência de sobreposição, disputa de reservas em transações
+independentes, histórico de preço/duração, duração dentro do bloco, RLS e grants.
+Também compara modelos com a migração e testa upgrade/downgrade somente no cluster
+temporário. Os testes de concorrência verificam integridade do banco; os futuros
+endpoints ainda precisarão traduzir conflitos e deadlocks para respostas tratadas.
+
 ## Verificação manual da base
 
 Com as dependências instaladas, abra dois terminais na raiz do repositório.
@@ -192,7 +227,8 @@ cd backend
 | Consultar `http://127.0.0.1:8000/health` | HTTP 200 com `{"status":"ok"}` |
 | Abrir `http://127.0.0.1:8000/docs` | Documentação com a operação GET /health |
 | Executar os testes do frontend | Um teste de inicialização aprovado |
-| Executar os testes do backend | Suíte de saúde, OpenAPI, CORS e infraestrutura aprovada, sem depender de banco |
+| Executar os testes sem banco do backend | Saúde, OpenAPI, CORS e configuração aprovados |
+| Executar a suíte com `--postgres-bin` | Incluir a validação de migrações e integridade no PostgreSQL temporário |
 | Executar `pip check` no ambiente virtual | Nenhuma dependência quebrada |
 
 Os resultados da tabela são critérios para a sua execução. A resposta de saúde e
@@ -257,10 +293,53 @@ o histórico sem conexão:
 .\.venv\Scripts\python.exe -m alembic history
 ```
 
-Ambos devem terminar sem revisões listadas. Ainda não há tabelas, revisões de
-negócio ou SQL a executar no SQL Editor. A migração inicial será entregue em outro
-incremento, após a conexão real ser validada. Testes locais da configuração e do
-template Alembic não equivalem a testes de integração PostgreSQL.
+`heads` deve listar `0001_modelo_inicial`; `history` deve mostrar a revisão inicial.
+Esses comandos inspecionam os arquivos, sem consultar a versão aplicada no banco.
+
+## Modelo de dados e migração inicial
+
+| Tabela | Conteúdo e integridade |
+| --- | --- |
+| administradores | UUID, nome, email único, hash e data com timezone |
+| servicos | Administradora, nome, descrição/imagem opcionais, preço e duração positivos, ativo |
+| horarios_disponiveis | Administradora, início/fim com timezone, bloqueio e exclusão de sobreposição |
+| agendamentos | Serviço, horário, contato, status e cópias imutáveis do preço e duração solicitados |
+
+Cada solicitação ocupa todo o bloco do horário. A duração precisa caber no bloco;
+reduzir o intervalo não pode invalidar uma reserva ativa. Edições posteriores no
+serviço preservam `preco_solicitado` e `duracao_minutos_solicitada`. A API de
+solicitação que preencherá esses valores ainda não está implementada.
+
+A restrição GiST usa intervalos `[início, fim)`: horários adjacentes são permitidos,
+mas sobreposições da mesma administradora são rejeitadas, inclusive em transações
+concorrentes. A extensão PostgreSQL `btree_gist` fornece suporte à comparação do
+UUID. Um índice único parcial impede duas reservas pendentes/aprovadas no mesmo
+horário. Recusa e cancelamento liberam essa unicidade, sem apagar o histórico ou
+alterar automaticamente o campo de bloqueio.
+
+A migração ativa RLS sem políticas públicas e revoga privilégios das tabelas do MVP
+para PUBLIC e para as roles Supabase `anon`, `authenticated` e `service_role`, quando
+existentes. A aplicação acessa os dados pelo backend; a Data API não oferece acesso
+direto a essas tabelas. Autenticação administrativa e filtros públicos continuam
+pendentes. O Alembic restringe autogenerate às tabelas do MVP.
+
+O [SQL completo da revisão inicial](backend/sql/0001_modelo_inicial.sql) permite
+revisar os efeitos antes de executar. Ele cria as quatro tabelas, índices,
+restrições, duas funções de integridade e respectivos triggers, além de registrar
+a versão Alembic. Não contém credenciais nem dados de demonstração.
+
+Para aplicar em banco configurado e sem objetos conflitantes, dentro de `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic upgrade head
+.\.venv\Scripts\python.exe -m alembic current
+.\.venv\Scripts\python.exe -m alembic check
+```
+
+Utilize o Alembic para aplicação; não execute também o SQL gerado sobre o mesmo
+banco. Não é necessário executar SQL manualmente no painel do Supabase. Downgrade
+remove tabelas e seus dados e exige autorização antes de uso fora dos testes
+temporários; a extensão compartilhável `btree_gist` é preservada.
 
 ## Escopo e estado atual
 
@@ -271,6 +350,7 @@ do escopo. A interface priorizará smartphones, incluindo telas de 320 px de lar
 O frontend contém somente a base técnica e um componente inicial. Não há telas de
 catálogo, agendamento ou administração, dados simulados ou regras de negócio.
 O backend contém configuração, estrutura em camadas, o endpoint técnico
-`GET /health` e a infraestrutura inicial de conexão/migração. A conexão PostgreSQL
-foi validada com `SELECT 1`, sem alterar tabelas. Modelos, tabelas, autenticação,
-funcionalidades de negócio e integração do frontend com a API permanecem pendentes.
+`GET /health`, infraestrutura de conexão, modelos e migração inicial. Isso ainda
+não oferece cadastro, login ou solicitação de horários pela API. Autenticação,
+repositórios/serviços de negócio, endpoints funcionais, fotografias e integração
+do frontend com a API permanecem pendentes.

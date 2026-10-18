@@ -7,13 +7,34 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.connection import DatabaseNotConfiguredError, create_database_engine
+from app import models  # Registra os modelos no metadata usado pelo Alembic.
 
 target_metadata = Base.metadata
+
+
+def include_name(name, type_, parent_names):
+    # Autogenerate deve inspecionar somente tabelas deste MVP, sem sugerir
+    # exclusões de objetos externos que compartilhem o banco do Supabase.
+    if type_ == "table":
+        return name in target_metadata.tables
+    return True
 
 
 def run_migrations() -> None:
     engine = None
     try:
+        provided_connection = context.config.attributes.get("connection")
+        if provided_connection is not None and not context.is_offline_mode():
+            context.configure(
+                connection=provided_connection,
+                target_metadata=target_metadata,
+                compare_type=True,
+                include_name=include_name,
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+            return
+
         settings = Settings()
         if settings.database_url is None:
             raise DatabaseNotConfiguredError()
@@ -24,6 +45,7 @@ def run_migrations() -> None:
                 target_metadata=target_metadata,
                 literal_binds=True,
                 dialect_opts={"paramstyle": "named"},
+                include_name=include_name,
             )
             with context.begin_transaction():
                 context.run_migrations()
@@ -34,6 +56,7 @@ def run_migrations() -> None:
                     connection=connection,
                     target_metadata=target_metadata,
                     compare_type=True,
+                    include_name=include_name,
                 )
                 with context.begin_transaction():
                     context.run_migrations()
