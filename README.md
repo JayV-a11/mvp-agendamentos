@@ -21,6 +21,19 @@ No backend, `app/api/` contém as rotas HTTP, `core/` as configurações e `sche
 os contratos de dados. As pastas `models/`, `repositories/`, `services/` e `db/`
 estão reservadas para persistência e regras de negócio futuras.
 
+## Arquitetura e comunicação
+
+| Camada | Responsabilidade | Estado atual |
+| --- | --- | --- |
+| Angular | Apresentação, navegação e formulários | Componente inicial, Router e HttpClient configurados |
+| FastAPI | Contratos HTTP, validação e regras de negócio | Factory, configuração de ambiente e endpoint de saúde |
+| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Ainda não implementados |
+
+Frontend e backend são processos independentes. Não há chamadas entre eles neste
+estágio. Na implementação dos fluxos de negócio, o Angular consumirá a API por
+HttpClient; o FastAPI aplicará as regras e acessará o PostgreSQL por SQLAlchemy.
+Credenciais de banco e de armazenamento privilegiadas ficarão somente no backend.
+
 ## Tecnologias
 
 - Frontend: Angular 22, TypeScript, Router, HttpClient, Reactive Forms e CSS.
@@ -144,6 +157,50 @@ simulados. Cobrem saúde da API, contrato OpenAPI, CORS e validação de configu
 HTTPX2 atende à integração atual do
 [TestClient do Starlette](https://www.starlette.io/testclient/).
 Não há ferramenta de lint configurada no backend.
+
+## Verificação manual da base
+
+Com as dependências instaladas, abra dois terminais na raiz do repositório.
+No primeiro, inicie o frontend:
+
+```powershell
+cd frontend
+npm.cmd start
+```
+
+No segundo, inicie o backend:
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+| Verificação | Resultado esperado |
+| --- | --- |
+| Abrir `http://localhost:4200` | Exibir o título “Agendamentos” |
+| Consultar `http://127.0.0.1:8000/health` | HTTP 200 com `{"status":"ok"}` |
+| Abrir `http://127.0.0.1:8000/docs` | Documentação com a operação GET /health |
+| Executar os testes do frontend | Um teste de inicialização aprovado |
+| Executar os testes do backend | 14 testes de saúde, OpenAPI, CORS e configuração aprovados |
+| Executar `pip check` no ambiente virtual | Nenhuma dependência quebrada |
+
+Os resultados da tabela são critérios para a sua execução. A resposta de saúde e
+o teste do componente não demonstram que catálogo ou agendamento já funcionam.
+Encerre cada servidor no respectivo terminal com `Ctrl+C`.
+
+## Solução de problemas locais
+
+| Problema | Procedimento |
+| --- | --- |
+| `node` ou `npm` não reconhecido | Use o ajuste de PATH da seção de pré-requisitos e confirme as versões |
+| `py -3.13` não encontra o Python | Use o executável local indicado na instalação do backend ou instale Python 3.13 na máquina |
+| PowerShell impede ativar o ambiente virtual | Execute diretamente `.venv\Scripts\python.exe`, como nos exemplos; ativação não é necessária |
+| API não inicia após editar `.env` | Confira a lista JSON de `CORS_ORIGINS`, sem coringas, caminhos ou barra final; o exemplo contém as chaves aceitas |
+| Frontend usa outra origem ou porta | Cadastre a origem exata em `CORS_ORIGINS` e reinicie o backend; `localhost` e `127.0.0.1` são origens diferentes |
+| Porta ocupada | Encerre o servidor que você iniciou ou selecione outra porta com `--port`; atualize o CORS se mudar a origem do frontend |
+
+CORS controla o uso da resposta pelo navegador; não autentica usuários nem bloqueia
+clientes HTTP externos. A API ainda não oferece operações administrativas.
 
 ## Escopo e estado atual
 
