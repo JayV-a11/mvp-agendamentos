@@ -4,8 +4,8 @@
 @if (loading()) {
 <p role="status">Carregando serviço e horários…</p>
 } @if (error()) {
-<div role="alert" class="alert error">
-  {{ error() }}
+<app-feedback [error]="error()" (closed)="error.set('')" />
+<div>
   <button class="text-button" [disabled]="busy()" (click)="load()">
     Atualizar disponibilidade
   </button>

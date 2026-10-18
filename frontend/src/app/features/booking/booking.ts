@@ -7,6 +7,7 @@ import { Api } from '../../core/api';
 import { Confirmation, Service, Slot } from '../../core/models';
 import { FieldError, Heading } from '../../shared/components';
 import { BusinessDatePipe } from '../../shared/business-date.pipe';
+import { Feedback } from '../../shared/feedback';
 import {
   businessDay,
   calendarDate,
@@ -17,7 +18,15 @@ import {
 } from '../../shared/presentation';
 
 @Component({
-  imports: [CurrencyPipe, BusinessDatePipe, RouterLink, ReactiveFormsModule, Heading, FieldError],
+  imports: [
+    CurrencyPipe,
+    BusinessDatePipe,
+    RouterLink,
+    ReactiveFormsModule,
+    Heading,
+    FieldError,
+    Feedback,
+  ],
   templateUrl: './booking.html',
 })
 export class BookingPage {

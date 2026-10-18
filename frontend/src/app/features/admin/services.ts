@@ -6,10 +6,19 @@ import { Api } from '../../core/api';
 import { Service, ServiceInput } from '../../core/models';
 import { FieldError, Heading, ServiceImage } from '../../shared/components';
 import { FocusPanel } from '../../shared/focus-panel';
+import { Feedback } from '../../shared/feedback';
 import { duration, errorMessage, notBlank, positivePrice } from '../../shared/presentation';
 
 @Component({
-  imports: [CurrencyPipe, ReactiveFormsModule, Heading, ServiceImage, FieldError, FocusPanel],
+  imports: [
+    CurrencyPipe,
+    ReactiveFormsModule,
+    Heading,
+    ServiceImage,
+    FieldError,
+    FocusPanel,
+    Feedback,
+  ],
   templateUrl: './services.html',
 })
 export class ServicesPage {
@@ -98,7 +107,11 @@ export class ServicesPage {
   save() {
     if (this.busy() || this.loading()) return;
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.fileError()) return;
+    if (this.form.invalid || this.fileError()) {
+      this.success.set('');
+      this.error.set('Confira os campos indicados antes de salvar o serviço.');
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     this.success.set('');
@@ -165,6 +178,7 @@ export class ServicesPage {
     if (!service || this.busy()) return;
     this.busy.set(true);
     this.error.set('');
+    this.success.set('');
     this.api.removePhoto(service.id).subscribe({
       next: (saved) => {
         this.editing.set(saved);

@@ -4,10 +4,11 @@ import { RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
 import { Service } from '../../core/models';
 import { Heading, ServiceImage } from '../../shared/components';
+import { Feedback } from '../../shared/feedback';
 import { duration, errorMessage } from '../../shared/presentation';
 
 @Component({
-  imports: [CurrencyPipe, RouterLink, Heading, ServiceImage],
+  imports: [CurrencyPipe, RouterLink, Heading, ServiceImage, Feedback],
   templateUrl: './catalog.html',
   styles: '.intro { margin-bottom:15px; }',
 })

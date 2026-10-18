@@ -5,6 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { SessionStore } from '../../core/session-store';
 import { SESSION } from '../../../testing/fixtures';
 import { AdminLayout } from './layout';
+import { Activity } from '../../core/activity';
 
 describe('Navegação administrativa', () => {
   let http: HttpTestingController;
@@ -15,7 +16,7 @@ describe('Navegação administrativa', () => {
     http = TestBed.inject(HttpTestingController);
   });
   afterEach(() => http.verify());
-  it('revoga sessão e volta ao login, impedindo clique duplicado', () => {
+  it('revoga sessão e volta ao login, impedindo clique duplicado', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     TestBed.inject(SessionStore).session.set(SESSION);
     const fixture = TestBed.createComponent(AdminLayout);
@@ -28,6 +29,8 @@ describe('Navegação administrativa', () => {
     http.expectOne('/api/auth/logout').flush(null);
     expect(TestBed.inject(SessionStore).session()).toBeNull();
     expect(navigate).toHaveBeenCalledWith('/login');
+    await Promise.resolve();
+    expect(TestBed.inject(Activity).sessionSuccess()).toContain('saiu da sua conta com segurança');
   });
   it('não apresenta logout como concluído quando a API falha', () => {
     const fixture = TestBed.createComponent(AdminLayout);
@@ -36,5 +39,9 @@ describe('Navegação administrativa', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role=alert]')).not.toBeNull();
     expect(fixture.componentInstance.busy()).toBe(false);
+    fixture.nativeElement.querySelector('.feedback-close').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.error()).toBe('');
+    expect(fixture.nativeElement.querySelector('[role=alert]')).toBeNull();
   });
 });

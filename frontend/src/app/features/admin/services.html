@@ -4,11 +4,8 @@
 <button class="button full" type="button" [disabled]="busy() || loading()" (click)="edit(null)">
   + Cadastrar novo serviço
 </button>
-@if (error()) {
-<p role="alert" class="alert error">{{ error() }}</p>
-} @if (success()) {
-<p role="status" class="alert success">✓ {{ success() }}</p>
-} @if (opened()) {
+<app-feedback [error]="error()" [success]="success()" (closed)="error.set(''); success.set('')" />
+@if (opened()) {
 <section class="editor" aria-labelledby="service-form-title">
   <h2 id="service-form-title" appFocusPanel tabindex="-1">
     {{ editing() ? 'Editar serviço' : 'Novo serviço' }}

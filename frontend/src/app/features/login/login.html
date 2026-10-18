@@ -5,9 +5,8 @@
 </div>
 @if (store.expired()) {
 <p class="alert error" role="status">Sua sessão expirou. Entre novamente para continuar.</p>
-} @if (error()) {
-<p class="alert error" role="alert">{{ error() }}</p>
 }
+<app-feedback [error]="error()" (closed)="error.set('')" />
 <form class="panel login-form" [formGroup]="form" (ngSubmit)="submit()">
   <h2>Acesso da profissional</h2>
   <label for="email">E-mail</label

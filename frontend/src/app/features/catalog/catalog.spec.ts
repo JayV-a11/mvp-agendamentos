@@ -54,7 +54,7 @@ describe('Catálogo público', () => {
     http.expectOne((r) => r.url === '/api/publico/servicos').error(new ProgressEvent('error'));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role=alert]')).not.toBeNull();
-    fixture.nativeElement.querySelector('button').click();
+    fixture.nativeElement.querySelector('button.text-button').click();
     http
       .expectOne((r) => r.url === '/api/publico/servicos')
       .flush([{ ...SERVICE, descricao: null }]);

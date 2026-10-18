@@ -7,6 +7,7 @@ import { Booking, Slot, Status } from '../../core/models';
 import { Heading, FieldError, StatusBadge } from '../../shared/components';
 import { BusinessDatePipe } from '../../shared/business-date.pipe';
 import { FocusPanel } from '../../shared/focus-panel';
+import { Feedback } from '../../shared/feedback';
 import { businessInstant, duration, errorMessage } from '../../shared/presentation';
 
 @Component({
@@ -18,6 +19,7 @@ import { businessInstant, duration, errorMessage } from '../../shared/presentati
     StatusBadge,
     BusinessDatePipe,
     FocusPanel,
+    Feedback,
   ],
   templateUrl: './agenda.html',
 })
@@ -70,7 +72,10 @@ export class AgendaPage {
     this.form.markAllAsTouched();
     this.error.set('');
     this.success.set('');
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.error.set('Preencha as datas e os horários de início e fim.');
+      return;
+    }
     let start: string, end: string;
     try {
       const data = this.form.getRawValue();
