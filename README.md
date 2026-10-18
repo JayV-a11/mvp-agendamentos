@@ -7,6 +7,11 @@ O atendimento solicitado permanece pendente até a aprovação da administradora
 O projeto utiliza arquitetura cliente-servidor em um monorepo. A interface será
 mobile-first e os fluxos de negócio passarão pela API.
 
+A proposta se relaciona ao ODS 8, especialmente à meta 8.3, ao apoiar a organização
+de um pequeno empreendimento autônomo. Essa contribuição é pretendida: redução de
+tempo, aumento de renda e produtividade ainda não foram medidos. O sistema não
+inclui indicadores financeiros ou painéis de impacto social.
+
 ## Estrutura
 
 ```text
@@ -18,7 +23,8 @@ No frontend, `src/app/core/` concentra infraestrutura, `shared/` recebe recursos
 compartilhados e `features/` recebe os módulos funcionais conforme forem implementados.
 
 No backend, `app/api/` contém as rotas HTTP, `core/` as configurações e `schemas/`
-os contratos de dados. `repositories/` e `services/` receberão os fluxos de negócio.
+os contratos de dados. `repositories/` consulta a persistência e `services/` aplica
+as regras de autenticação, catálogo, disponibilidade, agendamentos e fotografias.
 `db/` contém a base declarativa,
 a construção do engine e o comando de verificação de conexão. `models/` define
 administradores, serviços, horários e agendamentos. `alembic/` contém as migrações.
@@ -28,12 +34,12 @@ administradores, serviços, horários e agendamentos. `alembic/` contém as migr
 | Camada | Responsabilidade | Estado atual |
 | --- | --- | --- |
 | Angular | Apresentação, navegação e formulários | Componente inicial, Router e HttpClient configurados |
-| FastAPI | Contratos HTTP, validação e regras de negócio | Factory, configuração de ambiente e endpoint de saúde |
-| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Quatro modelos e migração inicial com restrições de integridade |
+| FastAPI | Contratos HTTP, validação e regras de negócio | Login, sessão, catálogo, horários, agendamentos e adaptador de fotos |
+| SQLAlchemy e PostgreSQL | Persistência, transações e integridade | Quatro entidades de negócio e duas tabelas técnicas para sessão e limitação de tentativas |
 
-Frontend e backend são processos independentes. Não há chamadas entre eles neste
-estágio. Na implementação dos fluxos de negócio, o Angular consumirá a API por
-HttpClient; o FastAPI aplicará as regras e acessará o PostgreSQL por SQLAlchemy.
+Frontend e backend são processos independentes. A interface ainda contém somente
+a base técnica. Os fluxos do backend podem ser exercitados por HTTP; a integração
+das telas Angular com esses endpoints permanece pendente.
 Credenciais de banco e de armazenamento privilegiadas ficarão somente no backend.
 
 ## Tecnologias
@@ -48,7 +54,10 @@ O frontend utiliza Angular e Angular CLI 22.2.3, com versões instaladas registr
 em `frontend/package-lock.json`.
 O backend utiliza FastAPI 0.143.5, Pydantic 2.14.1, pydantic-settings 2.16.0 e
 Uvicorn 0.54.0. `backend/requirements.txt` declara as dependências de execução e
-`requirements-dev.txt` acrescenta Pytest 9.1.1 e HTTPX2 2.13.1. As versões transitivas
+`requirements-dev.txt` acrescenta Pytest 9.1.1. HTTPX2 2.13.1 atende ao Storage e aos
+testes. Autenticação usa PyJWT 2.15.1 e pwdlib 0.3.1 com Argon2. Pillow 13.0.0 valida
+e otimiza imagens, pois FastAPI não oferece decodificação de fotografias.
+As versões transitivas
 estão fixadas em `backend/requirements.lock`, utilizado como arquivo de constraints.
 Persistência preparada com SQLAlchemy 2.1.5, Alembic 1.20.0 e Psycopg 3.3.6
 (distribuição binária para dispensar compilação local do driver).
@@ -135,8 +144,8 @@ de `requirements-dev.txt`.
 O `.env` é lido a partir da pasta `backend/`; variáveis de ambiente têm prioridade.
 `CORS_ORIGINS` recebe uma lista JSON de origens explícitas, por exemplo
 `["http://localhost:4200"]`. Não use coringa, barra final, caminhos ou credenciais.
-O padrão permite somente essa origem, o método GET e requisições sem cookies.
-A autenticação e a política de cookies serão implementadas em etapa própria.
+O padrão permite somente essa origem, credenciais, métodos utilizados pela API e
+os cabeçalhos Content-Type e X-CSRF-Token. Origem desconhecida não recebe permissão.
 O arquivo `.env` é local e não deve conter valores sensíveis versionados.
 
 `DATABASE_URL` é opcional enquanto não houver operações de banco: vazio significa
@@ -164,8 +173,9 @@ Para testar, dentro de `backend/`:
 .\.venv\Scripts\python.exe -m pip check
 ```
 
-Os testes usam a aplicação ASGI real via TestClient, sem banco ou serviços
-simulados. Cobrem saúde da API, contrato OpenAPI, CORS e validação de configuração.
+Os testes sem banco cobrem a aplicação ASGI real via TestClient, configuração,
+CORS, contrato OpenAPI e validação/normalização do conteúdo das fotos. Os fluxos
+de negócio usam servidor Uvicorn, HTTP e PostgreSQL reais no ambiente isolado.
 HTTPX2 atende à integração atual do
 [TestClient do Starlette](https://www.starlette.io/testclient/).
 Não há ferramenta de lint configurada no backend.
@@ -201,8 +211,11 @@ A integração verifica chaves e CHECKs, campos obrigatórios, defaults, dinheir
 Decimal, timezone, ausência de sobreposição, disputa de reservas em transações
 independentes, histórico de preço/duração, duração dentro do bloco, RLS e grants.
 Também compara modelos com a migração e testa upgrade/downgrade somente no cluster
-temporário. Os testes de concorrência verificam integridade do banco; os futuros
-endpoints ainda precisarão traduzir conflitos e deadlocks para respostas tratadas.
+temporário. Também exercita login, logout, CSRF, autorização por endpoint, IDs
+alterados, tokens inválidos, catálogo, reserva, aprovação, recusa, cancelamento e
+bloqueio. Concorrência por HTTP deve produzir uma reserva criada e um conflito 409.
+As fotografias não são enviadas ao Supabase pela suíte isolada: a verificação
+externa do Storage é independente e exige configuração explícita.
 
 ## Verificação manual da base
 
@@ -225,7 +238,7 @@ cd backend
 | --- | --- |
 | Abrir `http://localhost:4200` | Exibir o título “Agendamentos” |
 | Consultar `http://127.0.0.1:8000/health` | HTTP 200 com `{"status":"ok"}` |
-| Abrir `http://127.0.0.1:8000/docs` | Documentação com a operação GET /health |
+| Abrir `http://127.0.0.1:8000/docs` | Documentação das operações públicas e administrativas |
 | Executar os testes do frontend | Um teste de inicialização aprovado |
 | Executar os testes sem banco do backend | Saúde, OpenAPI, CORS e configuração aprovados |
 | Executar a suíte com `--postgres-bin` | Incluir a validação de migrações e integridade no PostgreSQL temporário |
@@ -246,8 +259,8 @@ Encerre cada servidor no respectivo terminal com `Ctrl+C`.
 | Frontend usa outra origem ou porta | Cadastre a origem exata em `CORS_ORIGINS` e reinicie o backend; `localhost` e `127.0.0.1` são origens diferentes |
 | Porta ocupada | Encerre o servidor que você iniciou ou selecione outra porta com `--port`; atualize o CORS se mudar a origem do frontend |
 
-CORS controla o uso da resposta pelo navegador; não autentica usuários nem bloqueia
-clientes HTTP externos. A API ainda não oferece operações administrativas.
+CORS controla o uso da resposta pelo navegador; a autenticação e a autorização
+continuam sendo verificadas pelo backend em cada operação administrativa.
 
 ## Preparação do PostgreSQL no Supabase
 
@@ -293,7 +306,7 @@ o histórico sem conexão:
 .\.venv\Scripts\python.exe -m alembic history
 ```
 
-`heads` deve listar `0001_modelo_inicial`; `history` deve mostrar a revisão inicial.
+`heads` deve listar `0002_sessoes_e_limites`; `history` deve mostrar as duas revisões.
 Esses comandos inspecionam os arquivos, sem consultar a versão aplicada no banco.
 
 ## Modelo de dados e migração inicial
@@ -307,8 +320,8 @@ Esses comandos inspecionam os arquivos, sem consultar a versão aplicada no banc
 
 Cada solicitação ocupa todo o bloco do horário. A duração precisa caber no bloco;
 reduzir o intervalo não pode invalidar uma reserva ativa. Edições posteriores no
-serviço preservam `preco_solicitado` e `duracao_minutos_solicitada`. A API de
-solicitação que preencherá esses valores ainda não está implementada.
+serviço preservam `preco_solicitado` e `duracao_minutos_solicitada`. A API preenche
+essas cópias com os valores do servidor e rejeita valores históricos no payload.
 
 A restrição GiST usa intervalos `[início, fim)`: horários adjacentes são permitidos,
 mas sobreposições da mesma administradora são rejeitadas, inclusive em transações
@@ -320,8 +333,8 @@ alterar automaticamente o campo de bloqueio.
 A migração ativa RLS sem políticas públicas e revoga privilégios das tabelas do MVP
 para PUBLIC e para as roles Supabase `anon`, `authenticated` e `service_role`, quando
 existentes. A aplicação acessa os dados pelo backend; a Data API não oferece acesso
-direto a essas tabelas. Autenticação administrativa e filtros públicos continuam
-pendentes. O Alembic restringe autogenerate às tabelas do MVP.
+direto a essas tabelas. A API oferece filtros públicos e autorização administrativa.
+O Alembic restringe autogenerate às tabelas do MVP.
 
 O [SQL completo da revisão inicial](backend/sql/0001_modelo_inicial.sql) permite
 revisar os efeitos antes de executar. Ele cria as quatro tabelas, índices,
@@ -349,8 +362,175 @@ do escopo. A interface priorizará smartphones, incluindo telas de 320 px de lar
 
 O frontend contém somente a base técnica e um componente inicial. Não há telas de
 catálogo, agendamento ou administração, dados simulados ou regras de negócio.
-O backend contém configuração, estrutura em camadas, o endpoint técnico
-`GET /health`, infraestrutura de conexão, modelos e migração inicial. Isso ainda
-não oferece cadastro, login ou solicitação de horários pela API. Autenticação,
-repositórios/serviços de negócio, endpoints funcionais, fotografias e integração
-do frontend com a API permanecem pendentes.
+O backend oferece autenticação e as operações obrigatórias de serviços, horários
+e agendamentos. O adaptador de fotografias exige a configuração do Storage
+descrita abaixo. Reagendamento (RF07) é desejável e permanece pendente.
+As telas, a integração Angular, a validação presencial, a revisão visual e as
+medições de acessibilidade e desempenho permanecem pendentes.
+
+## Autenticação e ambiente
+
+Dentro de `backend/`, após preencher DATABASE_URL e aplicar as migrações:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.core.bootstrap segredo
+.\.venv\Scripts\python.exe -m app.core.bootstrap administradora
+```
+
+O primeiro comando gera JWT_SECRET aleatório somente no `.env` e preserva um valor
+já existente. O segundo solicita nome, e-mail e senha no terminal, com senha oculta
+e confirmação. Exige 12 a 128 caracteres e impede criar uma segunda administradora.
+Não há cadastro público, senha padrão nem dados de negócio pré-carregados.
+
+| Variável | Uso |
+| --- | --- |
+| JWT_SECRET | Segredo aleatório com pelo menos 32 bytes; não versionar |
+| ENVIRONMENT | development ou production |
+| COOKIE_SECURE | false somente no desenvolvimento HTTP; true em produção |
+| COOKIE_SAMESITE | lax por padrão; none somente com Secure e quando a topologia exigir |
+| BUSINESS_TIMEZONE | America/Sao_Paulo; a API recebe datas com offset e persiste instantes |
+| SUPABASE_URL | Origem HTTPS do projeto, para Storage |
+| SUPABASE_SERVICE_KEY | Chave service_role somente no backend |
+| STORAGE_BUCKET | fotos-servicos por padrão |
+
+Login recebe JSON com `email` e `senha`. Retorna nome, expiração e token CSRF;
+o JWT fica exclusivamente no cookie HttpOnly `agendamento_sessao`, com duração de
+30 minutos. GET /auth/sessao recupera o token CSRF após recarregar a interface.
+Mutações autenticadas exigem `X-CSRF-Token`; origens não autorizadas são rejeitadas.
+Logout remove a sessão persistida, impedindo reutilizar o cookie encerrado.
+
+O limite de login é de 5 tentativas por e-mail e 30 por IP em 15 minutos, incluindo
+tentativas bem-sucedidas. Solicitações públicas têm limite de 20 por IP em 10
+minutos. Contadores atômicos persistem no PostgreSQL entre processos; a chave é
+HMAC e não armazena e-mails/IPs em texto puro. Respostas 429 incluem Retry-After.
+Contadores antigos e sessões expiradas são limpos durante as operações respectivas.
+
+A revisão [0002_sessoes_e_limites.sql](backend/sql/0002_sessoes_e_limites.sql) cria
+somente as duas tabelas técnicas, índices e proteção RLS/grants. Não altera dados
+das quatro entidades de negócio. Aplique com `alembic upgrade head`, sem executar
+também o SQL exportado. Sessões são invalidadas se JWT_SECRET for substituído.
+
+Para cookies funcionarem no frontend local, use o mesmo hostname nos dois lados:
+Angular em `http://localhost:4200` e API em `http://localhost:8000`. O frontend usará
+HttpClient com credenciais. Evite misturar localhost e 127.0.0.1 na navegação.
+Produção exige JWT_SECRET, banco, cookie Secure e origens HTTPS explícitas.
+Disponibilize a API por HTTPS no proxy da hospedagem e configure a confiança em
+forwarded headers apenas para esse proxy. SameSite=None exige HTTPS e ainda está
+sujeito às regras de cookies de terceiros do navegador; prefira domínios do mesmo site.
+
+## Operações HTTP do backend
+
+Listagens usam `limite` (1 a 100, padrão 100) e `inicio` (offset, padrão 0).
+Consultas da agenda aceitam `de` inclusivo e `ate` exclusivo, com offset de timezone.
+GET /publico/configuracao informa o fuso do negócio para a futura interface.
+
+| Método e rota | Acesso e comportamento |
+| --- | --- |
+| POST /auth/login | Público; autentica por JSON |
+| GET /auth/sessao | Sessão válida; retorna nome, expiração e CSRF |
+| POST /auth/logout | Sessão + CSRF; revoga a sessão |
+| GET /publico/servicos | Apenas serviços ativos |
+| GET /publico/servicos/{id} | Serviço ativo selecionado |
+| GET /publico/servicos/{id}/horarios | Futuros, desbloqueados, livres e com duração suficiente |
+| POST /publico/agendamentos | Cria solicitação pendente; somente serviço, horário, nome e telefone |
+| GET, POST /admin/servicos | Lista todos os próprios serviços ou cria um serviço |
+| PUT /admin/servicos/{id} | Substitui nome, descrição, preço, duração e ativo; preserva foto e histórico |
+| PUT, DELETE /admin/servicos/{id}/foto | Cadastra/substitui ou remove a foto |
+| GET /admin/servicos/{id}/foto | Recupera foto própria, inclusive de serviço inativo |
+| GET /publico/servicos/{id}/foto | Recupera foto otimizada de serviço ativo |
+| GET, POST /admin/horarios | Consulta ou cria blocos futuros |
+| PATCH /admin/horarios/{id}/bloqueio | Recebe bloqueado true/false |
+| GET /admin/agendamentos | Dados de contato e agenda; filtro adicional status |
+| PATCH /admin/agendamentos/{id}/status | Aprova, recusa ou cancela |
+
+Operações administrativas exigem sessão; toda mutação exige também CSRF. IDs de
+outra administradora não autorizam acesso, mesmo que sejam alterados manualmente.
+O bootstrap operacional limita o MVP a uma única administradora.
+
+Transições: pendente → aprovado, recusado ou cancelado; aprovado → cancelado.
+Recusado e cancelado são finais. Repetir uma decisão retorna 409. Cancelar ou
+recusar libera a reserva, preservando eventual bloqueio explícito do horário.
+Bloquear um horário já ocupado preserva o atendimento existente e impede novas
+solicitações. Os endpoints não alteram início/fim de um bloco já cadastrado.
+
+Entradas inválidas retornam 422; ausência de sessão retorna 401; CSRF/origem
+inválidos retornam 403; registro inexistente ou de outro proprietário retorna 404;
+indisponibilidade/transição conflitante retorna 409; excesso de corpo retorna 413.
+Falhas de infraestrutura retornam 503 sem SQL, conexão ou stack trace na resposta.
+Não há endpoint público de consulta de contatos ou de cancelamento.
+
+### Verificação manual de um fluxo
+
+1. Crie a administradora pelos comandos acima e inicie a API.
+2. Abra `/docs`, execute POST /auth/login e copie o `csrf_token` retornado.
+3. Em operações administrativas que alteram dados, preencha o parâmetro de header
+   `X-CSRF-Token` com o valor retornado. O navegador conserva o cookie definido
+   pelo login; não é um bearer token para colar no campo Authorize. Alternativamente,
+   use um cliente HTTP com cookie jar e esse cabeçalho.
+4. Crie um serviço e um bloco futuro com duração suficiente. Confirme ambos pela API.
+5. Consulte o catálogo e a disponibilidade públicos; envie nome e telefone de contato.
+6. Confirme resposta pendente e ausência do bloco na disponibilidade.
+7. Consulte `/admin/agendamentos`, aprove e confirme o estado atualizado.
+8. Cancele; confirme liberação. Bloqueie o bloco e confirme conflito na nova solicitação.
+9. Desative o serviço via PUT e confirme sua ausência no catálogo público.
+
+Use registros de teste somente no ambiente PostgreSQL isolado. Para reproduzir o
+fluxo automaticamente, execute a suíte de integração documentada acima, ou selecione
+`tests/integration/test_api.py::test_fluxo_http_completo_catalogo_reserva_aprovacao_recusa_cancelamento`
+com os mesmos argumentos de PostgreSQL. Ela não precisa da senha operacional.
+
+## Fotografias no Supabase Storage
+
+Preencha SUPABASE_URL com o Project URL de **Settings > API** e
+SUPABASE_SERVICE_KEY com a chave **service_role**, na aba de chaves legadas de
+**Settings > API Keys**. Use exclusivamente o `.env` do backend, sem transmitir a
+chave ao frontend. A credencial é privilegiada no Storage: restrinja acesso ao
+ambiente de execução. As tabelas de negócio continuam sem grants para service_role.
+
+O comando abaixo cria o bucket **fotos-servicos** privado, com limite de 5 MB e
+tipo WebP; caso exista, apenas verifica a configuração, sem alterá-lo:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.services.storage_setup
+```
+
+Para aplicar esses dois limites a um bucket existente que já seja privado,
+acrescente `--configure-existing`. A opção preserva os arquivos e não converte
+bucket público em privado. A restrição do bucket é WebP porque os arquivos JPEG,
+PNG e WebP recebidos pela API são convertidos antes de serem armazenados.
+
+Não crie políticas para acesso anon/authenticated a esse bucket. O backend faz o
+upload e recupera arquivos privados usando a chave, conforme o
+[controle de acesso do Storage](https://supabase.com/docs/guides/storage/security/access-control).
+Fotografias de serviços ativos são disponibilizadas pela API pública, sem revelar
+essa chave. Sem configuração, upload retorna 503 e nenhuma foto é simulada.
+
+PUT /admin/servicos/{id}/foto recebe os bytes do arquivo no corpo e Content-Type
+image/jpeg, image/png ou image/webp, além de cookie e X-CSRF-Token. Não usa multipart.
+Limites de entrada: 5 MB e 20 milhões de pixels. O conteúdo deve corresponder ao
+MIME; SVG, executáveis e arquivos corrompidos são rejeitados. A imagem é decodificada,
+orientada e regravada em WebP de até 1600×1600, sem metadados EXIF. Nomes e caminhos
+do usuário não são utilizados. A resposta fornece `imagem_url` relativa à API.
+
+Objetos recebem UUID por versão. A referência é alterada transacionalmente no
+PostgreSQL; a remoção da foto anterior ocorre depois do commit. Em rollback, o
+backend tenta remover o objeto novo. PostgreSQL e Storage não compartilham uma
+transação distribuída: uma falha de limpeza ou interrupção do processo pode deixar
+um objeto privado sem referência. O aviso operacional não contém nomes ou chaves;
+nessa situação, remova o objeto sem referência pelo painel após comparar com
+servicos.imagem_url. Não remova arquivos ainda referenciados. O cache público da
+foto pode durar até 60 segundos após substituição ou desativação.
+
+### Verificação externa opcional do Storage
+
+Após configurar o bucket, dentro de `backend/`:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m pytest -c pyproject.toml tests/integration/test_storage_external.py -q -W error -p no:cacheprovider --basetemp ..\.tools\pytest-storage --postgres-bin ..\.tools\postgresql17\pgsql\bin --storage-external
+```
+
+Esse teste é explicitamente autorizado pela opção `--storage-external`. O banco
+continua sendo local e temporário. Somente o Storage usa a configuração real:
+arquivos sintéticos ficam em nomes UUID exclusivos e são removidos ao terminar.
+O teste verifica upload, substituição, leitura, serviço inativo, remoção e bloqueio
+de leitura anônima pela URL pública do Storage. A suíte padrão ignora esse teste.

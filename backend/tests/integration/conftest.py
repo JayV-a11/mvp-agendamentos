@@ -104,6 +104,6 @@ def db(database_engine):
     yield database_engine
     with database_engine.begin() as connection:
         connection.execute(text(
-            "TRUNCATE public.agendamentos, public.horarios_disponiveis, "
+            "TRUNCATE public.limites_requisicoes, public.agendamentos, public.horarios_disponiveis, "
             "public.servicos, public.administradores CASCADE"
         ))

@@ -10,6 +10,8 @@ def pytest_addoption(parser):
         "--postgres-bin", default=None,
         help="Diretório com initdb e pg_ctl para um cluster de testes local temporário.",
     )
+    parser.addoption('--storage-external', action='store_true', default=False,
+        help='Autoriza verificar fotos no Storage real usando somente objetos UUID dos testes isolados.')
 
 
 @pytest.fixture

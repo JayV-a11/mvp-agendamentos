@@ -262,4 +262,4 @@ def test_downgrade_e_upgrade_somente_no_cluster_temporario(db):
         command.downgrade(config, "base")
         assert connection.execute(text("SELECT to_regclass('public.agendamentos')")).scalar_one() is None
         command.upgrade(config, "head")
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0001_modelo_inicial"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0002_sessoes_e_limites"
