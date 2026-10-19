@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { LoginPage } from './login';
 import { SESSION } from '../../../testing/fixtures';
+import { Activity } from '../../core/activity';
 
 describe('Login administrativo', () => {
   let http: HttpTestingController;
@@ -22,9 +23,15 @@ describe('Login administrativo', () => {
     fixture.componentInstance.submit();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Informe um e-mail válido');
+    fixture.nativeElement.querySelector('.feedback-close').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role=alert]')).toBeNull();
+    fixture.componentInstance.submit();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role=alert]')).not.toBeNull();
     http.expectNone('/api/auth/login');
   });
-  it('autentica, evita duplicação e navega para a agenda limpando senha', () => {
+  it('autentica, evita duplicação e navega para a agenda limpando senha', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     const fixture = TestBed.createComponent(LoginPage),
       page = fixture.componentInstance;
@@ -35,6 +42,8 @@ describe('Login administrativo', () => {
     expect(page.form.controls.senha.value).toBe('');
     expect(navigate).toHaveBeenCalledWith('/admin/agenda');
     expect(page.busy()).toBe(false);
+    await Promise.resolve();
+    expect(TestBed.inject(Activity).sessionSuccess()).toBe('Login realizado com sucesso.');
   });
   it('mostra erro genérico, limpa senha e permite nova tentativa', () => {
     const fixture = TestBed.createComponent(LoginPage),

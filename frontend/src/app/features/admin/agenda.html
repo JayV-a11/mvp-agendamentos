@@ -10,11 +10,8 @@
 >
   {{ opened() ? 'Fechar formulário de horário' : '+ Disponibilizar horário' }}
 </button>
-@if (error()) {
-<p class="alert error" role="alert">{{ error() }}</p>
-} @if (success()) {
-<p class="alert success" role="status">✓ {{ success() }}</p>
-} @if (opened()) {
+<app-feedback [error]="error()" [success]="success()" (closed)="error.set(''); success.set('')" />
+@if (opened()) {
 <section id="slot-editor" class="editor" aria-labelledby="slot-title">
   <h2 id="slot-title" appFocusPanel tabindex="-1">Disponibilizar horário</h2>
   <p class="hint">Informe o início e o fim no fuso {{ timezone() }}.</p>

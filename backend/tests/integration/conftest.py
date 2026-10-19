@@ -1,5 +1,6 @@
 import os
 import secrets
+import shlex
 import socket
 import subprocess
 from pathlib import Path
@@ -55,8 +56,15 @@ def postgres_cluster(request, tmp_path_factory):
         port_socket.bind(("127.0.0.1", 0))
         port = port_socket.getsockname()[1]
     try:
+        server_options = ["-h", "127.0.0.1", "-p", str(port)]
+        if os.name != "nt":
+            # O runner Linux não pode gravar no diretório de sockets do serviço
+            # PostgreSQL do sistema. O socket pertence ao cluster descartável.
+            server_options.extend(["-k", str(directory)])
+        options = (subprocess.list2cmdline(server_options) if os.name == "nt"
+                   else shlex.join(server_options))
         run(pg_ctl, "-D", data, "-l", directory / "server.log", "-w", "-t", "30",
-            "-o", f"-h 127.0.0.1 -p {port}", "start")
+            "-o", options, "start")
         yield URL.create(
             "postgresql+psycopg", username="postgres", password=password,
             host="127.0.0.1", port=port, database="postgres",

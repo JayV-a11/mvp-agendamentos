@@ -31,8 +31,30 @@ test('fluxo completo público e administrativo, acessibilidade básica e estados
   await page.getByRole('button', { name: 'Entrar na administração' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await page.getByLabel('Senha', { exact: true }).fill(process.env['E2E_PASSWORD']!);
+  // Latência no navegador, sem substituir respostas: torna o progresso observável.
+  const network = await page.context().newCDPSession(page);
+  await network.send('Network.enable');
+  await network.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 800,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
   await page.getByRole('button', { name: 'Entrar na administração' }).click();
+  await expect(page.locator('.request-progress')).toContainText('Processando solicitação');
+  await expect(page.getByRole('button', { name: 'Entrando…' })).toBeDisabled();
+  await page.screenshot({ path: testInfo.outputPath('09-login-processando.png'), fullPage: true });
   await expect(page.getByRole('heading', { name: 'Minha agenda' })).toBeVisible();
+  await expect(page.locator('.request-progress')).toHaveCount(0);
+  await expect(page.locator('.feedback-panel.success')).toContainText(
+    'Login realizado com sucesso.',
+  );
+  await network.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
   await page
     .getByRole('navigation', { name: 'Administração' })
     .getByRole('link', { name: 'Catálogo', exact: true })
@@ -49,6 +71,7 @@ test('fluxo completo público e administrativo, acessibilidade básica e estados
     await page.getByLabel('Duração estimada (minutos)').fill(minutes);
     await page.getByRole('button', { name: 'Salvar serviço', exact: true }).click();
     await expect(page.locator('.alert.success')).toContainText('Serviço salvo com sucesso.');
+    await expect(page.locator('.feedback-panel.success')).toBeInViewport();
   }
   await capture('02-gerenciar-catalogo');
   await fits();
@@ -65,6 +88,7 @@ test('fluxo completo público e administrativo, acessibilidade básica e estados
     await page.getByLabel('Fim', { exact: true }).fill(fim);
     await page.getByRole('button', { name: 'Salvar horário', exact: true }).click();
     await expect(page.locator('.alert.success')).toContainText('Horário disponibilizado.');
+    await expect(page.locator('.feedback-panel.success')).toBeInViewport();
   }
   const context = await browser.newContext({
     baseURL: process.env['E2E_BASE_URL'],
@@ -159,6 +183,11 @@ test('fluxo completo público e administrativo, acessibilidade básica e estados
     await client.evaluate(() => (document.body.style.zoom = ''));
     await page.getByRole('button', { name: 'Sair', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Bem-vinda de volta' })).toBeVisible();
+    await expect(page.locator('.feedback-panel.success')).toContainText(
+      'saiu da sua conta com segurança',
+    );
+    await page.getByRole('button', { name: 'Fechar aviso' }).click();
+    await expect(page.locator('.feedback-panel')).toHaveCount(0);
     await page.goto('/admin/servicos');
     await expect(page.getByRole('heading', { name: 'Bem-vinda de volta' })).toBeVisible();
     expect(errors).toEqual([]);

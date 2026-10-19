@@ -4,9 +4,8 @@
 @if (loading()) {
 <p role="status">Carregando serviços…</p>
 } @if (error()) {
-<div class="alert error" role="alert">
-  {{ error() }} <button class="text-button" (click)="load()">Tentar novamente</button>
-</div>
+<app-feedback [error]="error()" />
+<button class="text-button" (click)="load()">Tentar novamente</button>
 } @if (!loading() && !error()) {
 <p class="badge count">
   {{ services().length }} {{ services().length === 1 ? 'serviço' : 'serviços' }}

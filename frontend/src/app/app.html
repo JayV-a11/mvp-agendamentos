@@ -1,2 +1,11 @@
 <a class="skip-link" href="#content" (click)="skipToContent($event)">Ir para o conteúdo</a>
-<main id="content" #content tabindex="-1"><router-outlet /></main>
+@if (activity.pending()) {
+<div class="request-progress" role="status" aria-live="polite" aria-atomic="true">
+  <span class="request-spinner" aria-hidden="true"></span>
+  <span>Processando solicitação…<small>Aguarde a conclusão.</small></span>
+</div>
+}
+<main id="content" #content tabindex="-1">
+  <app-feedback [success]="activity.sessionSuccess()" (closed)="activity.sessionSuccess.set('')" />
+  <router-outlet />
+</main>
